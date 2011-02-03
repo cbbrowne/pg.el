@@ -1,0 +1,10 @@
+pg.el
+
+This is an Emacs Lisp interface for PostgreSQL
+
+This module lets you access the PostgreSQL object-relational DBMS from
+Emacs, using its socket-level frontend/backend protocol. The module is
+capable of automatic type coercions from a range of SQL types to the
+equivalent Emacs Lisp type. This is a low level API, and won't be
+useful to end users. Should work with GNU Emacs 19.34 and up, and
+XEmacs 20 and up. Performance is very poor when not byte-compiled.
