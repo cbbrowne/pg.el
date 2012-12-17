@@ -353,6 +353,9 @@ as for PG:CONNECT. The database connection is bound to the variable
 CONNECTION. If the connection is unsuccessful, the forms are not
 evaluated. Otherwise, the BODY forms are executed, and upon
 termination, normal or otherwise, the database connection is closed."
+  (declare
+   (debug (sexp sexp &rest form))
+   (indent 2))
   `(let ((,con (pg:connect ,@open-args)))
      (unwind-protect
          (progn ,@body)
@@ -365,6 +368,9 @@ a ROLLBACK command.
 Large-object manipulations _must_ occur within a transaction, since
 the large object descriptors are only valid within the context of a
 transaction."
+  (declare
+   (debug (sexp &rest form))
+   (indent 1))
   (let ((exc-sym (gensym)))
     `(progn
        (pg:exec ,con "BEGIN WORK")
