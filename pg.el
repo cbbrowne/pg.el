@@ -356,10 +356,12 @@ termination, normal or otherwise, the database connection is closed."
   (declare
    (debug (sexp sexp &rest form))
    (indent 2))
-  `(let ((,con (pg:connect ,@open-args)))
-     (unwind-protect
-         (progn ,@body)
-       (when ,con (pg:disconnect ,con)))))
+  (let ((open-argsv (make-symbol "open-argsv")))
+    `(let* ((,open-argsv ,open-args)
+            (,con (apply 'pg:connect ,open-argsv)))
+       (unwind-protect
+            (progn ,@body)
+         (when ,con (pg:disconnect ,con))))))
 
 (defmacro with-pg-transaction (con &rest body)
   "Execute BODY forms in a BEGIN..END block.
