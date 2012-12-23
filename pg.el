@@ -2,9 +2,9 @@
 ;;;
 ;;; Author: Eric Marsden <emarsden@laas.fr>
 ;;; Maintainer: Helmut Eller <heller@common-lisp.net>
-;;;
 ;;; Version: 0.12
 ;;; Keywords: data comm database postgresql
+;;;
 ;;; Copyright: (C) 1999-2005  Eric Marsden
 ;;; Copyright: (C) 2005-2006  Eric Marsden, Helmut Eller
 ;;   
@@ -353,10 +353,15 @@ as for PG:CONNECT. The database connection is bound to the variable
 CONNECTION. If the connection is unsuccessful, the forms are not
 evaluated. Otherwise, the BODY forms are executed, and upon
 termination, normal or otherwise, the database connection is closed."
-  `(let ((,con (pg:connect ,@open-args)))
-     (unwind-protect
-         (progn ,@body)
-       (when ,con (pg:disconnect ,con)))))
+  (declare
+   (debug (sexp sexp &rest form))
+   (indent 2))
+  (let ((open-argsv (make-symbol "open-argsv")))
+    `(let* ((,open-argsv ,open-args)
+            (,con (apply 'pg:connect ,open-argsv)))
+       (unwind-protect
+            (progn ,@body)
+         (when ,con (pg:disconnect ,con))))))
 
 (defmacro with-pg-transaction (con &rest body)
   "Execute BODY forms in a BEGIN..END block.
@@ -365,6 +370,9 @@ a ROLLBACK command.
 Large-object manipulations _must_ occur within a transaction, since
 the large object descriptors are only valid within the context of a
 transaction."
+  (declare
+   (debug (sexp &rest form))
+   (indent 1))
   (let ((exc-sym (gensym)))
     `(progn
        (pg:exec ,con "BEGIN WORK")
