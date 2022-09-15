@@ -224,7 +224,7 @@
 ;;
 ;; 1. Establish a tunnel to the backend machine, like this:
 ;; 
-;; 	ssh -L 3333:backend.dom:5432 postgres@backend.dom
+;;         ssh -L 3333:backend.dom:5432 postgres@backend.dom
 ;; 
 ;;    The first number in the -L argument, 3333, is the port number of
 ;;    your end of the tunnel. The second number, 5432, is the remote
@@ -331,8 +331,8 @@ session (not per connection to the backend).")
 
 (defconst pg:ISODATE_REGEX 
   (concat "\\([0-9]+\\)-\\([0-9][0-9]\\)-\\([0-9][0-9]\\) " ; Y-M-D
-	  "\\([0-9][0-9]\\):\\([0-9][0-9]\\):\\([.0-9]+\\)" ; H:M:S.S
-	  "\\([-+][0-9]+\\)?")) ; TZ
+          "\\([0-9][0-9]\\):\\([0-9][0-9]\\):\\([.0-9]+\\)" ; H:M:S.S
+          "\\([-+][0-9]+\\)?")) ; TZ
 
 ;; alist of (oid . parser) pairs. This is built dynamically at
 ;; initialization of the connection with the database (once generated,
@@ -406,7 +406,7 @@ called 'pg-finished."
 
 (defun* pg:connect (dbname user
                    &optional (password "") (host "localhost") (port 5432)
-		   (encoding 'latin-1))
+                   (encoding 'latin-1))
   "Initiate a connection with the PostgreSQL backend.
 Connect to the database DBNAME with the username USER, on PORT of
 HOST, providing PASSWORD if necessary. Return a connection to the
@@ -431,7 +431,7 @@ database (as an opaque type). PORT defaults to 5432, HOST to
     (pg:flush connection)
     (loop for c = (pg:read-char connection) do
       (cond ((eq ?E c) 
-	     (error "Backend error: %s" (pg:read-string connection 4096)))
+             (error "Backend error: %s" (pg:read-string connection 4096)))
             ((eq ?R c)
              (let ((areq (pg:read-net-int connection 4)))
                (cond
@@ -439,11 +439,11 @@ database (as an opaque type). PORT defaults to 5432, HOST to
                  (and (not pg:disable-type-coercion)
                      (null pg:parsers)
                      (pg:initialize-parsers connection))
-		 (let ((enc (ecase encoding
-			      (latin-1 "LATIN-1")
-			      (utf-8 "UTF-8"))))
-		   (pg:exec connection 
-			    (format "SET client_encoding = '%s';" enc)))
+                 (let ((enc (ecase encoding
+                              (latin-1 "LATIN-1")
+                              (utf-8 "UTF-8"))))
+                   (pg:exec connection 
+                            (format "SET client_encoding = '%s';" enc)))
                  (pg:exec connection "SET datestyle = 'ISO';")
                  (return-from pg:connect connection))
                 ((= areq pg:AUTH_REQ_PASSWORD)
@@ -458,15 +458,15 @@ database (as an opaque type). PORT defaults to 5432, HOST to
                 ((= areq pg:AUTH_REQ_KRB5)
                  (error "Kerberos5 authentication not supported"))
                 ((= areq pg:AUTH_REQ_MD5)
-		 (let* ((salt (pg:read-chars connection 4))
-			(crypted (pg:md5-encode user password salt)))
-		   ;;(message "md5 %S %S %S => %S\n"
-		   ;;	    user password salt crypted)
-		   (pg:send-int connection (+ 5 (length crypted)) 4)
-		   (pg:send connection crypted)
-		   (pg:send-int connection 0 1)
-		   (pg:flush connection)))
-		(t
+                 (let* ((salt (pg:read-chars connection 4))
+                        (crypted (pg:md5-encode user password salt)))
+                   ;;(message "md5 %S %S %S => %S\n"
+                   ;;       user password salt crypted)
+                   (pg:send-int connection (+ 5 (length crypted)) 4)
+                   (pg:send connection crypted)
+                   (pg:send-int connection 0 1)
+                   (pg:flush connection)))
+                (t
                  (error "Can't do that type of authentication: %s" areq)))))
             (t
              (error "Problem connecting: expected an authentication response"))))))
@@ -482,7 +482,7 @@ a result structure which can be decoded using `pg:result'."
     (if (> (length sql) pg:MAX_MESSAGE_LEN)
         (error "SQL statement too long: %s" sql))
     (let ((str (encode-coding-string (format "%c%s%c" ?Q sql 0)
-				     (pgcon-encoding connection))))
+                                     (pgcon-encoding connection))))
       ;;;(debug nil str)
       (pg:send connection str))
     (pg:flush connection)
@@ -534,8 +534,8 @@ a result structure which can be decoded using `pg:result'."
             (?N
              (let ((notice (pg:read-string connection pg:MAX_MESSAGE_LEN)))
                (message "NOTICE: %s" notice)
-	       ;;(debug nil notice)
-	       ))
+               ;;(debug nil notice)
+               ))
 
             ;; CursorResponse
             (?P
@@ -677,14 +677,14 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 (defun pg:isodate-parser (str)
   (if (string-match pg:ISODATE_REGEX str)  ; is non-null
       (let ((year    (string-to-number (match-string 1 str)))
-	    (month   (string-to-number (match-string 2 str)))
-	    (day     (string-to-number (match-string 3 str)))
-	    (hours   (string-to-number (match-string 4 str)))
-	    (minutes (string-to-number (match-string 5 str)))
-	    (seconds (round (string-to-number (match-string 6 str))))
-	    (tzs (when (match-string 7 str)
-		   (* 3600 (string-to-number (match-string 7 str))))))
-	(encode-time seconds minutes hours day month year tzs))
+            (month   (string-to-number (match-string 2 str)))
+            (day     (string-to-number (match-string 3 str)))
+            (hours   (string-to-number (match-string 4 str)))
+            (minutes (string-to-number (match-string 5 str)))
+            (seconds (round (string-to-number (match-string 6 str))))
+            (tzs (when (match-string 7 str)
+                   (* 3600 (string-to-number (match-string 7 str))))))
+        (encode-time seconds minutes hours day month year tzs))
     (error "Badly formed ISO timestamp from backend: %s" str)))
 
 
@@ -720,17 +720,17 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 
 (defun pg:md5-hex-digest (string)
   (cond ((fboundp 'md5) (md5 string))
-	(t
-	 (let ((tmpfile (make-temp-name "/tmp/md5-hex")))
-	   (with-temp-file tmpfile (insert string))
-	   (unwind-protect
-	       (with-temp-buffer
-		 (let ((c (call-process "md5sum" tmpfile (current-buffer))))
-		   (assert (zerop c))
-		   (goto-char (point-min))
-		   (search-forward " ")
-		   (buffer-substring 1 (1- (point)))))
-	     (delete-file tmpfile))))))
+        (t
+         (let ((tmpfile (make-temp-name "/tmp/md5-hex")))
+           (with-temp-file tmpfile (insert string))
+           (unwind-protect
+               (with-temp-buffer
+                 (let ((c (call-process "md5sum" tmpfile (current-buffer))))
+                   (assert (zerop c))
+                   (goto-char (point-min))
+                   (search-forward " ")
+                   (buffer-substring 1 (1- (point)))))
+             (delete-file tmpfile))))))
 
 ;; large object support ================================================
 ;;
@@ -830,7 +830,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 (defun pg:lo-create (connection &optional args)
   (let* ((modestr (or args "r"))
          (mode (cond ((integerp modestr) modestr)
-		     ((string= "r" modestr) pg:INV_READ)
+                     ((string= "r" modestr) pg:INV_READ)
                      ((string= "w" modestr) pg:INV_WRITE)
                      ((string= "rw" modestr)
                       (logior pg:INV_READ pg:INV_WRITE))
@@ -847,7 +847,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 (defun pg:lo-open (connection oid &optional args)
   (let* ((modestr (or args "r"))
          (mode (cond ((integerp modestr) modestr)
-		     ((string= "r" modestr) pg:INV_READ)
+                     ((string= "r" modestr) pg:INV_READ)
                      ((string= "w" modestr) pg:INV_WRITE)
                      ((string= "rw" modestr)
                       (logior pg:INV_READ pg:INV_WRITE))
@@ -984,7 +984,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
             (t
              (let* ((len (+ (pg:read-net-int connection 4) correction))
                     (raw (pg:read-chars connection (max 0 len)))
-		    (pg::text-encoding (pgcon-encoding connection))
+                    (pg::text-encoding (pgcon-encoding connection))
                     (parsed (pg:parse raw (car type-ids))))
                (push parsed tuples)))))))
 
@@ -994,12 +994,12 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
     (with-current-buffer (process-buffer process)
       (unless (char-after 1)
         (pg::accept-process-output process 0.001)
-	(while (not (char-after 1))
-	  (pg::accept-process-output process 0.1)))
+        (while (not (char-after 1))
+          (pg::accept-process-output process 0.1)))
       (prog1 (char-after 1)
-	;;(message "read-char: %d %d => %c" 
-	;;	 (point) (buffer-size) (char-after 1))
-	(delete-region 1 2)))))
+        ;;(message "read-char: %d %d => %c" 
+        ;;       (point) (buffer-size) (char-after 1))
+        (delete-region 1 2)))))
 
 ;; FIXME should be more careful here; the integer could overflow.
 (defun pg:read-net-int (connection bytes)
@@ -1020,10 +1020,10 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
     (with-current-buffer (process-buffer process)
       (when (< (buffer-size) howmany)
         (pg::accept-process-output process 0.002)
-	(while (< (buffer-size) howmany)
-	  (pg::accept-process-output process 0.2)))
+        (while (< (buffer-size) howmany)
+          (pg::accept-process-output process 0.2)))
       (prog1 (buffer-substring-no-properties 1 (1+ howmany))
-	(delete-region 1 (1+ howmany))))))
+        (delete-region 1 (1+ howmany))))))
 
 (defvar pg::accept-process-output-supports-floats 
   (ignore-errors (accept-process-output nil 0.0) t))
@@ -1036,13 +1036,13 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
     (error "pg::accept-process-output called recursively"))
   (let ((pg::inside-accept-process-output t))
     (cond (pg::accept-process-output-supports-floats
-	   (accept-process-output process timeout nil 1))
-	  (t
-	   (accept-process-output 
-	    process 
-	    (if timeout (truncate timeout))
-	    ;; Emacs21 uses microsecs; Emacs22 millisecs
-	    (if timeout (truncate (* timeout 1000000))))))))
+           (accept-process-output process timeout nil 1))
+          (t
+           (accept-process-output 
+            process 
+            (if timeout (truncate timeout))
+            ;; Emacs21 uses microsecs; Emacs22 millisecs
+            (if timeout (truncate (* timeout 1000000))))))))
 
 (defun pg::process-send (process string)
   "Wrapper aroud process-send-string."
@@ -1073,9 +1073,9 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 
 (defun pg:send (connection str &optional bytes)
   (let ((process (pgcon-process connection))
-	(data (if (and (numberp bytes) (> bytes (length str)))
-		  (concat str (make-string (- bytes (length str)) 0))
-		str)))
+        (data (if (and (numberp bytes) (> bytes (length str)))
+                  (concat str (make-string (- bytes (length str)) 0))
+                str)))
     (pg::process-send process data)))
 
 ;; This (limited) testing code assumes you have a database user
@@ -1218,4 +1218,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 
 (provide 'pg)
 
+;; Local Variables:
+;; indent-tabs-mode: nil
+;; End:
 ;;; pg.el ends here
