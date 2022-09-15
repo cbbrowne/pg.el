@@ -264,8 +264,7 @@
 
 ;;; Code:
 
-(eval-and-compile
-  (require 'cl))
+(require 'cl-lib)
 
 (defvar pg:disable-type-coercion nil
   "*Non-nil disables the type coercion mechanism.
@@ -336,8 +335,8 @@ session (not per connection to the backend).")
 ;; the information is shared between connections).
 (defvar pg:parsers '())
 
-(defstruct pgcon process pid secret (binaryp nil) encoding)
-(defstruct pgresult connection status attributes tuples portal)
+(cl-defstruct pgcon process pid secret (binaryp nil) encoding)
+(cl-defstruct pgresult connection status attributes tuples portal)
 
 (defun pg:flush (connection)
   ;;(accept-process-output (pgcon-process connection))
@@ -395,15 +394,16 @@ called 'pg-finished."
       (with-pg-transaction conn
          (pg:exec conn "DECLARE " cursor " CURSOR FOR " select-form)
          (unwind-protect
-             (loop for res = (pg:result (pg:exec conn "FETCH 1 FROM " cursor) :tuples)
-                   until (zerop (length res))
-                   do (funcall callback res))
+             (cl-loop for res = (pg:result (pg:exec conn "FETCH 1 FROM " cursor)
+                                           :tuples)
+                      until (zerop (length res))
+                      do (funcall callback res))
            (pg:exec conn "CLOSE " cursor))))))
 
 
-(defun* pg:connect (dbname user
-                   &optional (password "") (host "localhost") (port 5432)
-                   (encoding 'latin-1))
+(cl-defun pg:connect ( dbname user
+                       &optional (password "") (host "localhost") (port 5432)
+                       (encoding 'latin-1))
   "Initiate a connection with the PostgreSQL backend.
 Connect to the database DBNAME with the username USER, on PORT of
 HOST, providing PASSWORD if necessary. Return a connection to the
@@ -426,49 +426,50 @@ database (as an opaque type). PORT defaults to 5432, HOST to
     (pg:send connection dbname pg:SM_DATABASE)
     (pg:send connection user user-packet-length)
     (pg:flush connection)
-    (loop for c = (pg:read-char connection) do
-      (cond ((eq ?E c)
-             (error "Backend error: %s" (pg:read-string connection 4096)))
-            ((eq ?R c)
-             (let ((areq (pg:read-net-int connection 4)))
-               (cond
-                ((= areq pg:AUTH_REQ_OK)
-                 (and (not pg:disable-type-coercion)
-                     (null pg:parsers)
-                     (pg:initialize-parsers connection))
-                 (let ((enc (ecase encoding
-                              (latin-1 "LATIN-1")
-                              (utf-8 "UTF-8"))))
-                   (pg:exec connection
-                            (format "SET client_encoding = '%s';" enc)))
-                 (pg:exec connection "SET datestyle = 'ISO';")
-                 (return-from pg:connect connection))
-                ((= areq pg:AUTH_REQ_PASSWORD)
-                 (pg:send-int connection (+ 5 (length password)) 4)
-                 (pg:send connection password)
-                 (pg:send-int connection 0 1)
-                 (pg:flush connection))
-                ((= areq pg:AUTH_REQ_CRYPT)
-                 (error "Crypt authentication not supported"))
-                ((= areq pg:AUTH_REQ_KRB4)
-                 (error "Kerberos4 authentication not supported"))
-                ((= areq pg:AUTH_REQ_KRB5)
-                 (error "Kerberos5 authentication not supported"))
-                ((= areq pg:AUTH_REQ_MD5)
-                 (let* ((salt (pg:read-chars connection 4))
-                        (crypted (pg:md5-encode user password salt)))
-                   ;;(message "md5 %S %S %S => %S\n"
-                   ;;       user password salt crypted)
-                   (pg:send-int connection (+ 5 (length crypted)) 4)
-                   (pg:send connection crypted)
+    (cl-loop for c = (pg:read-char connection) do
+             (cond
+              ((eq ?E c)
+               (error "Backend error: %s" (pg:read-string connection 4096)))
+              ((eq ?R c)
+               (let ((areq (pg:read-net-int connection 4)))
+                 (cond
+                  ((= areq pg:AUTH_REQ_OK)
+                   (and (not pg:disable-type-coercion)
+                        (null pg:parsers)
+                        (pg:initialize-parsers connection))
+                   (let ((enc (cl-ecase encoding
+                                (latin-1 "LATIN-1")
+                                (utf-8 "UTF-8"))))
+                     (pg:exec connection
+                              (format "SET client_encoding = '%s';" enc)))
+                   (pg:exec connection "SET datestyle = 'ISO';")
+                   (cl-return-from pg:connect connection))
+                  ((= areq pg:AUTH_REQ_PASSWORD)
+                   (pg:send-int connection (+ 5 (length password)) 4)
+                   (pg:send connection password)
                    (pg:send-int connection 0 1)
-                   (pg:flush connection)))
-                (t
-                 (error "Can't do that type of authentication: %s" areq)))))
-            (t
-             (error "Problem connecting: expected an authentication response"))))))
+                   (pg:flush connection))
+                  ((= areq pg:AUTH_REQ_CRYPT)
+                   (error "Crypt authentication not supported"))
+                  ((= areq pg:AUTH_REQ_KRB4)
+                   (error "Kerberos4 authentication not supported"))
+                  ((= areq pg:AUTH_REQ_KRB5)
+                   (error "Kerberos5 authentication not supported"))
+                  ((= areq pg:AUTH_REQ_MD5)
+                   (let* ((salt (pg:read-chars connection 4))
+                          (crypted (pg:md5-encode user password salt)))
+                     ;;(message "md5 %S %S %S => %S\n"
+                     ;;       user password salt crypted)
+                     (pg:send-int connection (+ 5 (length crypted)) 4)
+                     (pg:send connection crypted)
+                     (pg:send-int connection 0 1)
+                     (pg:flush connection)))
+                  (t
+                   (error "Can't do that type of authentication: %s" areq)))))
+              (t
+               (error "Problem connecting: expected an authentication response"))))))
 
-(defun* pg:exec (connection &rest args)
+(cl-defun pg:exec (connection &rest args)
   "Execute the SQL command given by the concatenation of ARGS
 on the database to which we are connected via CONNECTION. Return
 a result structure which can be decoded using `pg:result'."
@@ -483,71 +484,71 @@ a result structure which can be decoded using `pg:result'."
       ;;;(debug nil str)
       (pg:send connection str))
     (pg:flush connection)
-    (loop for c = (pg:read-char connection) do
-          (case c
-            ;; AsynchronousNotify
-            (?A
-             (let ((pid (pg:read-int connection 4))
-                   (msg (pg:read-string connection pg:MAX_MESSAGE_LEN)))
-               (message "Asynchronous notify %s" msg)))
+    (cl-loop for c = (pg:read-char connection) do
+             (cl-case c
+               ;; AsynchronousNotify
+               (?A
+                (let ((pid (pg:read-int connection 4))
+                      (msg (pg:read-string connection pg:MAX_MESSAGE_LEN)))
+                  (message "Asynchronous notify %s" msg)))
 
-            ;; BinaryRow
-            (?B
-             (setf (pgcon-binaryp connection) t)
-             (or attributes (error "Tuple received before metadata"))
-             (push (pg:read-tuple connection attributes) tuples))
+               ;; BinaryRow
+               (?B
+                (setf (pgcon-binaryp connection) t)
+                (or attributes (error "Tuple received before metadata"))
+                (push (pg:read-tuple connection attributes) tuples))
 
-            ;; CompletedResponse
-            (?C
-             (let* ((status (pg:read-string connection pg:MAX_MESSAGE_LEN)))
-               (setf (pgresult-status result) status)
-               (setf (pgresult-tuples result) (nreverse tuples))
-               (setf (pgresult-attributes result) attributes)
-               (return-from pg:exec result)))
+               ;; CompletedResponse
+               (?C
+                (let* ((status (pg:read-string connection pg:MAX_MESSAGE_LEN)))
+                  (setf (pgresult-status result) status)
+                  (setf (pgresult-tuples result) (nreverse tuples))
+                  (setf (pgresult-attributes result) attributes)
+                  (cl-return-from pg:exec result)))
 
-            ;; TextDataTransfer
-            (?D
-             (setf (pgcon-binaryp connection) nil)
-             (or attributes (error "Tuple received before metadata"))
-             (push (pg:read-tuple connection attributes) tuples))
+               ;; TextDataTransfer
+               (?D
+                (setf (pgcon-binaryp connection) nil)
+                (or attributes (error "Tuple received before metadata"))
+                (push (pg:read-tuple connection attributes) tuples))
 
-            ;; ErrorResponse
-            (?E
-             (let ((msg (pg:read-string connection pg:MAX_MESSAGE_LEN)))
-               (error "Backend error: %s" msg)))
+               ;; ErrorResponse
+               (?E
+                (let ((msg (pg:read-string connection pg:MAX_MESSAGE_LEN)))
+                  (error "Backend error: %s" msg)))
 
-            ;; EmptyQueryResponse
-            (?I
-             (let ((c (pg:read-char connection)))
-               ))
+               ;; EmptyQueryResponse
+               (?I
+                (let ((c (pg:read-char connection)))
+                  ))
 
-            ;; BackendKeyData
-            (?K
-             (setf (pgcon-pid connection) (pg:read-net-int connection 4))
-             (setf (pgcon-secret connection) (pg:read-net-int connection 4)))
+               ;; BackendKeyData
+               (?K
+                (setf (pgcon-pid connection) (pg:read-net-int connection 4))
+                (setf (pgcon-secret connection) (pg:read-net-int connection 4)))
 
 
-            ;; NoticeResponse
-            (?N
-             (let ((notice (pg:read-string connection pg:MAX_MESSAGE_LEN)))
-               (message "NOTICE: %s" notice)
-               ;;(debug nil notice)
-               ))
+               ;; NoticeResponse
+               (?N
+                (let ((notice (pg:read-string connection pg:MAX_MESSAGE_LEN)))
+                  (message "NOTICE: %s" notice)
+                  ;;(debug nil notice)
+                  ))
 
-            ;; CursorResponse
-            (?P
-             (let ((portal (pg:read-string connection pg:MAX_MESSAGE_LEN)))
-               (setf (pgresult-portal result) portal)))
+               ;; CursorResponse
+               (?P
+                (let ((portal (pg:read-string connection pg:MAX_MESSAGE_LEN)))
+                  (setf (pgresult-portal result) portal)))
 
-            ;; RowDescription
-            (?T
-             (and attributes (error "Cannot handle multiple result group"))
-             (setq attributes (pg:read-attributes connection)))
+               ;; RowDescription
+               (?T
+                (and attributes (error "Cannot handle multiple result group"))
+                (setq attributes (pg:read-attributes connection)))
 
-            ;; ReadyForQuery
-            (?Z t)
+               ;; ReadyForQuery
+               (?Z t)
 
-            (t (error "Unknown response type from backend: %s" c))))))
+               (t (error "Unknown response type from backend: %s" c))))))
 
 (defun pg:result (result what &rest arg)
   "Extract WHAT component of RESULT.
@@ -572,8 +573,9 @@ and the keyword WHAT should be one of
         ((eq :oid what)
          (let ((status (pgresult-status result)))
            (if (string= "INSERT" (substring status 0 6))
-               (string-to-number (substring status 7 (position ? status :start 7)))
-               (error "Only INSERT commands generate an oid: %s" status))))
+               (string-to-number
+                (substring status 7 (cl-position ? status :start 7)))
+             (error "Only INSERT commands generate an oid: %s" status))))
         (t
          (error "Unknown result request %s" what))))
 
@@ -651,7 +653,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;; bound in pg:read-tuple
 (defvar pg::text-encoding nil)
 (defsubst pg:text-parser (str)
-  (assert pg::text-encoding)
+  (cl-assert pg::text-encoding)
   (decode-coding-string str pg::text-encoding))
 
 (defun pg:bool-parser (str)
@@ -693,7 +695,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
      #'(lambda (tuple)
        (let* ((typname (first tuple))
               (oid (string-to-number (second tuple)))
-              (type (assoc* typname pg:type-parsers :test #'string=)))
+              (type (cl-assoc typname pg:type-parsers :test #'string=)))
          (if (consp type)
              (push (cons oid (cdr type)) pg:parsers))))
      tuples)))
@@ -712,7 +714,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 
 (defun pg:md5-key-salt (key salt)
   (let ((d (pg:md5-hex-digest (concat key salt))))
-    (assert (= (length d) 32))
+    (cl-assert (= (length d) 32))
     d))
 
 (defun pg:md5-hex-digest (string)
@@ -723,7 +725,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
            (unwind-protect
                (with-temp-buffer
                  (let ((c (call-process "md5sum" tmpfile (current-buffer))))
-                   (assert (zerop c))
+                   (cl-assert (zerop c))
                    (goto-char (point-min))
                    (search-forward " ")
                    (buffer-substring 1 (1- (point)))))
@@ -792,36 +794,36 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
                      (error "Unknown fastpath type: %S" arg))))
           args)
     (pg:flush connection)
-    (loop with result = '()
-          for c = (pg:read-char connection) do
-          (case c
-             ;; ErrorResponse
-            (?E (error (pg:read-string connection 4096)))
+    (cl-loop with result = '()
+             for c = (pg:read-char connection) do
+             (cl-case c
+               ;; ErrorResponse
+               (?E (error (pg:read-string connection 4096)))
 
-            ;; FunctionResultResponse
-            (?V (setq result t))
+               ;; FunctionResultResponse
+               (?V (setq result t))
 
-            ;; Nonempty response
-            (?G
-             (let* ((len (pg:read-net-int connection 4))
-                    (res (if integer-result
-                             (pg:read-net-int connection len)
-                           (pg:read-chars connection len))))
-               (setq result res)))
+               ;; Nonempty response
+               (?G
+                (let* ((len (pg:read-net-int connection 4))
+                       (res (if integer-result
+                                (pg:read-net-int connection len)
+                              (pg:read-chars connection len))))
+                  (setq result res)))
 
-            ;; NoticeResponse
-            (?N
-             (let ((notice (pg:read-string connection pg:MAX_MESSAGE_LEN)))
-               (message "NOTICE: %s" notice))
-             (unix-sync))
+               ;; NoticeResponse
+               (?N
+                (let ((notice (pg:read-string connection pg:MAX_MESSAGE_LEN)))
+                  (message "NOTICE: %s" notice))
+                (unix-sync))
 
-            ;; ReadyForQuery
-            (?Z t)
+               ;; ReadyForQuery
+               (?Z t)
 
-            ;; end of FunctionResult
-            (?0 (return result))
+               ;; end of FunctionResult
+               (?0 (cl-return result))
 
-            (t (error "Unexpected character in pg:fn: ?%c" c))))))
+               (t (error "Unexpected character in pg:fn: ?%c" c))))))
 
 ;; returns an OID
 (defun pg:lo-create (connection &optional args)
@@ -885,7 +887,8 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
       (while (< pos (point-max))
         (pg:lo-write
          connection fdout
-         (buffer-substring-no-properties pos (min (point-max) (incf pos 1024)))))
+         (buffer-substring-no-properties pos (min (point-max)
+                                                  (cl-incf pos 1024)))))
       (pg:lo-close connection fdout)
       (kill-buffer buf)
       oid)))
@@ -895,8 +898,8 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
          (fdin (pg:lo-open connection oid "r")))
     (save-excursion
       (set-buffer buf)
-      (do ((str (pg:lo-read connection fdin 1024)
-                (pg:lo-read connection fdin 1024)))
+      (cl-do ((str (pg:lo-read connection fdin 1024)
+                   (pg:lo-read connection fdin 1024)))
           ((or (not str)
                (zerop (length str))))
         (insert str))
@@ -950,7 +953,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 (defun pg:read-attributes (connection)
   (let ((attribute-count (pg:read-net-int connection 2))
         (attributes '()))
-    (do ((i attribute-count (- i 1)))
+    (cl-do ((i attribute-count (- i 1)))
         ((zerop i) (nreverse attributes))
       (let ((type-name (pg:read-string connection pg:MAX_MESSAGE_LEN))
             (type-id   (pg:read-net-int connection 4))
@@ -973,8 +976,8 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
          (bitmap (pg:read-chars connection num-bytes))
          (correction (if (pgcon-binaryp connection) 0 -4))
          (tuples '()))
-    (do ((i 0 (+ i 1))
-         (type-ids (mapcar #'second attributes) (cdr type-ids)))
+    (cl-do ((i 0 (+ i 1))
+         (type-ids (mapcar #'cl-second attributes) (cdr type-ids)))
         ((= i num-attributes) (nreverse tuples))
       (cond ((zerop (pg:bitmap-ref bitmap i))
              (push nil tuples))
@@ -1000,17 +1003,17 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 
 ;; FIXME should be more careful here; the integer could overflow.
 (defun pg:read-net-int (connection bytes)
-  (do ((i bytes (- i 1))
+  (cl-do ((i bytes (- i 1))
        (accum 0))
       ((zerop i) accum)
     (setq accum (+ (* 256 accum) (pg:read-char connection)))))
 
 (defun pg:read-int (connection bytes)
-  (do ((i bytes (- i 1))
+  (cl-do ((i bytes (- i 1))
        (multiplier 1 (* multiplier 256))
        (accum 0))
       ((zerop i) accum)
-    (incf accum (* multiplier (pg:read-char connection)))))
+    (cl-incf accum (* multiplier (pg:read-char connection)))))
 
 (defun pg:read-chars (connection howmany)
   (let* ((process (pgcon-process connection)))
@@ -1043,15 +1046,15 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 
 (defun pg::process-send (process string)
   "Wrapper aroud process-send-string."
-  (assert (not pg::inside-accept-process-output))
+  (cl-assert (not pg::inside-accept-process-output))
   (process-send-string process string))
 
 ;; read a null-terminated string
 (defun pg:read-string (connection maxbytes)
-  (loop for i from 1 to maxbytes
-        for ch = (pg:read-char connection)
-        until (= ch ?\0)
-        concat (char-to-string ch)))
+  (cl-loop for i from 1 to maxbytes
+           for ch = (pg:read-char connection)
+           until (= ch ?\0)
+           concat (char-to-string ch)))
 
 ;; higher order bits first
 (defun pg:send-int (connection num bytes)
@@ -1061,7 +1064,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
     (while (>= i 0)
       (aset str i (% num 256))
       (setq num (floor num 256))
-      (decf i))
+      (cl-decf i))
     (pg::process-send process str)))
 
 (defun pg:send-char (connection char)
