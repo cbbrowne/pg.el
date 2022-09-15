@@ -519,14 +519,12 @@ a result structure which can be decoded using `pg:result'."
 
                ;; EmptyQueryResponse
                (?I
-                (let ((c (pg:read-char connection)))
-                  ))
+                (pg:read-char connection))
 
                ;; BackendKeyData
                (?K
                 (setf (pgcon-pid connection) (pg:read-net-int connection 4))
                 (setf (pgcon-secret connection) (pg:read-net-int connection 4)))
-
 
                ;; NoticeResponse
                (?N
@@ -881,8 +879,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
          (oid (pg:lo-create connection "rw"))
          (fdout (pg:lo-open connection oid "w"))
          (pos (point-min)))
-    (save-excursion
-      (set-buffer buf)
+    (with-current-buffer buf
       (insert-file-contents-literally filename)
       (while (< pos (point-max))
         (pg:lo-write
@@ -896,8 +893,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 (defun pg:lo-export (connection oid filename)
   (let* ((buf (get-buffer-create (format " *pg-%d" oid)))
          (fdin (pg:lo-open connection oid "r")))
-    (save-excursion
-      (set-buffer buf)
+    (with-current-buffer buf
       (cl-do ((str (pg:lo-read connection fdin 1024)
                    (pg:lo-read connection fdin 1024)))
           ((or (not str)
