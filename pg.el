@@ -7,17 +7,17 @@
 ;;;
 ;;; Copyright: (C) 1999-2005  Eric Marsden
 ;;; Copyright: (C) 2005-2006  Eric Marsden, Helmut Eller
-;;   
+;;
 ;;     This program is free software; you can redistribute it and/or
 ;;     modify it under the terms of the GNU General Public License as
 ;;     published by the Free Software Foundation; either version 2 of
 ;;     the License, or (at your option) any later version.
-;;     
+;;
 ;;     This program is distributed in the hope that it will be useful,
 ;;     but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;;     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 ;;     GNU General Public License for more details.
-;;     
+;;
 ;;     You should have received a copy of the GNU General Public
 ;;     License along with this program; if not, write to the Free
 ;;     Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
@@ -154,7 +154,7 @@
 ;;
 ;; (pg:lo-write connection fd buf)
 ;;     Write the bytes contained in the elisp string BUF to the
-;;     large object associated with the file descriptor FD. 
+;;     large object associated with the file descriptor FD.
 ;;
 ;; (pg:lo-lseek conn fd offset whence)
 ;;     Do the equivalent of a lseek(2) on the file descriptor FD which
@@ -223,9 +223,9 @@
 ;; description):
 ;;
 ;; 1. Establish a tunnel to the backend machine, like this:
-;; 
+;;
 ;;         ssh -L 3333:backend.dom:5432 postgres@backend.dom
-;; 
+;;
 ;;    The first number in the -L argument, 3333, is the port number of
 ;;    your end of the tunnel. The second number, 5432, is the remote
 ;;    end of the tunnel -- the port number your backend is using. The
@@ -235,7 +235,7 @@
 ;;    name you are currently logged on as on the client machine. You can
 ;;    use any user name the server machine will accept, not necessarily
 ;;    those related to postgres.
-;; 
+;;
 ;; 2. Now that you have a running ssh session, you can point pg.el to
 ;;    the local host at the port number which you specified in step 1.
 ;;    For example,
@@ -270,7 +270,7 @@
 (eval-and-compile
   (require 'cl))
 
-(defvar pg:disable-type-coercion nil  
+(defvar pg:disable-type-coercion nil
   "*Non-nil disables the type coercion mechanism.
 The default is nil, which means that data recovered from the database
 is coerced to the corresponding Emacs Lisp type before being returned;
@@ -329,7 +329,7 @@ session (not per connection to the backend).")
 ;; "\\([0-9]\\{2\\}\\):\\([0-9]\\{2\\}\\):\\([.0-9]+\\)" ; H:M:S.S
 ;; "\\([-+][0-9]+\\)")) ; TZ
 
-(defconst pg:ISODATE_REGEX 
+(defconst pg:ISODATE_REGEX
   (concat "\\([0-9]+\\)-\\([0-9][0-9]\\)-\\([0-9][0-9]\\) " ; Y-M-D
           "\\([0-9][0-9]\\):\\([0-9][0-9]\\):\\([.0-9]+\\)" ; H:M:S.S
           "\\([-+][0-9]+\\)?")) ; TZ
@@ -397,7 +397,7 @@ called 'pg-finished."
     (catch 'pg-finished
       (with-pg-transaction conn
          (pg:exec conn "DECLARE " cursor " CURSOR FOR " select-form)
-         (unwind-protect 
+         (unwind-protect
              (loop for res = (pg:result (pg:exec conn "FETCH 1 FROM " cursor) :tuples)
                    until (zerop (length res))
                    do (funcall callback res))
@@ -411,7 +411,7 @@ called 'pg-finished."
 Connect to the database DBNAME with the username USER, on PORT of
 HOST, providing PASSWORD if necessary. Return a connection to the
 database (as an opaque type). PORT defaults to 5432, HOST to
-\"localhost\", and PASSWORD to an empty string."  
+\"localhost\", and PASSWORD to an empty string."
   (let* ((buf (generate-new-buffer " *PostgreSQL*"))
          process connection
          (user-packet-length (+ pg:SM_USER pg:SM_OPTIONS pg:SM_UNUSED pg:SM_TTY)))
@@ -430,7 +430,7 @@ database (as an opaque type). PORT defaults to 5432, HOST to
     (pg:send connection user user-packet-length)
     (pg:flush connection)
     (loop for c = (pg:read-char connection) do
-      (cond ((eq ?E c) 
+      (cond ((eq ?E c)
              (error "Backend error: %s" (pg:read-string connection 4096)))
             ((eq ?R c)
              (let ((areq (pg:read-net-int connection 4)))
@@ -442,7 +442,7 @@ database (as an opaque type). PORT defaults to 5432, HOST to
                  (let ((enc (ecase encoding
                               (latin-1 "LATIN-1")
                               (utf-8 "UTF-8"))))
-                   (pg:exec connection 
+                   (pg:exec connection
                             (format "SET client_encoding = '%s';" enc)))
                  (pg:exec connection "SET datestyle = 'ISO';")
                  (return-from pg:connect connection))
@@ -528,8 +528,8 @@ a result structure which can be decoded using `pg:result'."
             (?K
              (setf (pgcon-pid connection) (pg:read-net-int connection 4))
              (setf (pgcon-secret connection) (pg:read-net-int connection 4)))
-             
-            
+
+
             ;; NoticeResponse
             (?N
              (let ((notice (pg:read-string connection pg:MAX_MESSAGE_LEN)))
@@ -549,7 +549,7 @@ a result structure which can be decoded using `pg:result'."
 
             ;; ReadyForQuery
             (?Z t)
-             
+
             (t (error "Unknown response type from backend: %s" c))))))
 
 (defun pg:result (result what &rest arg)
@@ -744,7 +744,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;;
 ;; For example, the user can define a new type called "circle", and
 ;; define a C or Tcl function called `circumference' which will act on
-;; circles. There is also an inheritance mechanism in PostgreSQL. 
+;; circles. There is also an inheritance mechanism in PostgreSQL.
 ;;
 ;;======================================================================
 (defvar pg:lo-initialized nil)
@@ -803,7 +803,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 
             ;; FunctionResultResponse
             (?V (setq result t))
-            
+
             ;; Nonempty response
             (?G
              (let* ((len (pg:read-net-int connection 4))
@@ -817,13 +817,13 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
              (let ((notice (pg:read-string connection pg:MAX_MESSAGE_LEN)))
                (message "NOTICE: %s" notice))
              (unix-sync))
-            
+
             ;; ReadyForQuery
             (?Z t)
 
             ;; end of FunctionResult
             (?0 (return result))
-            
+
             (t (error "Unexpected character in pg:fn: ?%c" c))))))
 
 ;; returns an OID
@@ -843,7 +843,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
           (t oid))))
 
 ;; args = modestring (default "r", or "w" or "rw")
-;; returns a file descriptor for use in later pg:lo-* procedures        
+;; returns a file descriptor for use in later pg:lo-* procedures
 (defun pg:lo-open (connection oid &optional args)
   (let* ((modestr (or args "r"))
          (mode (cond ((integerp modestr) modestr)
@@ -865,13 +865,13 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 
 (defsubst pg:lo-write (connection fd buf)
   (pg:fn connection "lowrite" t fd buf))
-  
+
 (defsubst pg:lo-lseek (connection fd offset whence)
   (pg:fn connection "lo_lseek" t fd offset whence))
 
 (defsubst pg:lo-tell (connection oid)
   (pg:fn connection "lo_tell" t oid))
-  
+
 (defsubst pg:lo-unlink (connection oid)
   (pg:fn connection "lo_unlink" t oid))
 
@@ -931,7 +931,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
                       "(relkind = 'r' OR relkind = 'i' OR relkind = 'S') AND "
                       "relname !~ '^pg_' AND usesysid = relowner ORDER BY relname")))
     (apply #'append (pg:result res :tuples))))
-    
+
 (defun pg:columns (conn table)
   "Return a list of the columns present in TABLE."
   (let* ((sql (format "SELECT * FROM %s WHERE 0 = 1" table))
@@ -997,7 +997,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
         (while (not (char-after 1))
           (pg::accept-process-output process 0.1)))
       (prog1 (char-after 1)
-        ;;(message "read-char: %d %d => %c" 
+        ;;(message "read-char: %d %d => %c"
         ;;       (point) (buffer-size) (char-after 1))
         (delete-region 1 2)))))
 
@@ -1025,7 +1025,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
       (prog1 (buffer-substring-no-properties 1 (1+ howmany))
         (delete-region 1 (1+ howmany))))))
 
-(defvar pg::accept-process-output-supports-floats 
+(defvar pg::accept-process-output-supports-floats
   (ignore-errors (accept-process-output nil 0.0) t))
 
 (defvar pg::inside-accept-process-output nil)
@@ -1038,8 +1038,8 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
     (cond (pg::accept-process-output-supports-floats
            (accept-process-output process timeout nil 1))
           (t
-           (accept-process-output 
-            process 
+           (accept-process-output
+            process
             (if timeout (truncate timeout))
             ;; Emacs21 uses microsecs; Emacs22 millisecs
             (if timeout (truncate (* timeout 1000000))))))))
@@ -1048,7 +1048,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
   "Wrapper aroud process-send-string."
   (assert (not pg::inside-accept-process-output))
   (process-send-string process string))
-  
+
 ;; read a null-terminated string
 (defun pg:read-string (connection maxbytes)
   (loop for i from 1 to maxbytes
@@ -1066,7 +1066,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
       (setq num (floor num 256))
       (decf i))
     (pg::process-send process str)))
-  
+
 (defun pg:send-char (connection char)
   (let ((process (pgcon-process connection)))
     (pg::process-send process (char-to-string char))))
@@ -1087,7 +1087,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;;
 ;; This code has been tested with GNU Emacs 19.34, 20.3 and 20.6, and
 ;; XEmacs 20.4, on Solaris and linuxppc. It should work with
-;; PostgreSQL 6.x, 7.0, 7.1.2. 
+;; PostgreSQL 6.x, 7.0, 7.1.2.
 
 ;; (defmacro with-pgtest-connection (&rest body)
 ;;   `(with-pg-connection conn ("template1" "postgres")
@@ -1107,12 +1107,12 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;;    (pg:test-date)
 ;;    (message "Testing field extraction routines...")
 ;;    (pg:test-result)
-;;    (message "Testing large-object routines...")   
+;;    (message "Testing large-object routines...")
 ;;    (pg:test-lo-read)
 ;;    (pg:test-lo-import)
 ;;    (pg:exec conn "DROP DATABASE pgeltest")
 ;;    (message "Tests passed ok")))
-;; 
+;;
 ;; ;; this will be *real* slow unless byte-compiled
 ;; (defun pg:test-insert ()
 ;;   (with-pgtest-connection
@@ -1127,7 +1127,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;;      (setq res (pg:exec conn "SELECT sum(key) FROM count_test"))
 ;;      (assert (= 5050 (first (pg:result res :tuple 0))))
 ;;      (pg:exec conn "DROP TABLE count_test"))))
-;; 
+;;
 ;; ;; Testing for the time handling routines. Expected output is
 ;; ;; something like (in buffer *Messages*)
 ;; ;;
@@ -1146,7 +1146,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;;      (message "abstime = %s" (second res))
 ;;      (message "time = %s" (third res)))
 ;;    (pg:exec conn "DROP TABLE date_test")))
-;;   
+;;
 ;; ;; Testing for the data access functions. Expected output is something
 ;; ;; like
 ;; ;;
@@ -1177,10 +1177,10 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;;      (message "second tuple of SELECT is %s" (pg:result r4 :tuple 1))
 ;;      (message "status of DROP is %s" (pg:result r5 :status))
 ;;      (message "=============================================="))))
-;; 
+;;
 ;; ;; test of large-object interface. Note the use of with-pg-transaction
 ;; ;; to wrap the requests in a BEGIN..END transaction which is necessary
-;; ;; when working with large objects. 
+;; ;; when working with large objects.
 ;; (defun pg:test-lo-read ()
 ;;   (with-pgtest-connection
 ;;    (with-pg-transaction conn
@@ -1195,7 +1195,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;;       (message "==================================================")
 ;;       (pg:lo-close conn fd)
 ;;       (pg:lo-unlink conn oid)))))
-;;   
+;;
 ;; (defun pg:test-lo-import ()
 ;;   (with-pgtest-connection
 ;;    (with-pg-transaction conn
@@ -1208,7 +1208,7 @@ PostgreSQL and Emacs. CONNECTION should no longer be used."
 ;;              (message "lo-import test failed: check differences")
 ;;              (message "between files /etc/group and /tmp/group")))
 ;;       (pg:lo-unlink conn oid)))))
-;; 
+;;
 ;; (defun pg:cleanup ()
 ;;   (interactive)
 ;;   (loop for b in (buffer-list) do
